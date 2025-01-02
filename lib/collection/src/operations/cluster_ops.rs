@@ -28,22 +28,16 @@ pub enum ClusterOperations {
     RestartTransfer(RestartTransferOperation),
 
     /// Start resharding
-    #[schemars(skip)]
     StartResharding(StartReshardingOperation),
     /// Finish migrating points on specified shard, mark shard as `Active`
-    #[schemars(skip)]
     FinishMigratingPoints(FinishMigratingPointsOperation),
     /// Commit read hashring
-    #[schemars(skip)]
     CommitReadHashRing(CommitReadHashRingOperation),
     /// Commit write hashring
-    #[schemars(skip)]
     CommitWriteHashRing(CommitWriteHashRingOperation),
     /// Finish resharding
-    #[schemars(skip)]
     FinishResharding(FinishReshardingOperation),
     /// Abort resharding
-    #[schemars(skip)]
     AbortResharding(AbortReshardingOperation),
 }
 
@@ -92,7 +86,6 @@ pub struct DropShardingKey {
 pub struct RestartTransfer {
     pub shard_id: ShardId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)] // TODO(resharding): expose once we release resharding
     pub to_shard_id: Option<ShardId>,
     pub from_peer_id: PeerId,
     pub to_peer_id: PeerId,
@@ -190,7 +183,6 @@ pub struct FinishReshardingOperation {
 pub struct ReplicateShard {
     pub shard_id: ShardId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)] // TODO(resharding): expose once we release resharding
     pub to_shard_id: Option<ShardId>,
     pub to_peer_id: PeerId,
     pub from_peer_id: PeerId,
@@ -214,7 +206,6 @@ impl Validate for ReplicateShard {
 pub struct MoveShard {
     pub shard_id: ShardId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)] // TODO(resharding): expose once we release resharding
     pub to_shard_id: Option<ShardId>,
     pub to_peer_id: PeerId,
     pub from_peer_id: PeerId,
@@ -256,7 +247,6 @@ pub struct Replica {
 pub struct AbortShardTransfer {
     pub shard_id: ShardId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)] // TODO(resharding): expose once we release resharding
     pub to_shard_id: Option<ShardId>,
     pub to_peer_id: PeerId,
     pub from_peer_id: PeerId,
