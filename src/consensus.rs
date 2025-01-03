@@ -524,10 +524,6 @@ impl Consensus {
         previous_tick: Instant,
         tick_period: Duration,
     ) -> anyhow::Result<Option<usize>> {
-        if previous_tick.elapsed() >= tick_period {
-            return Ok(None);
-        }
-
         match self.try_add_origin() {
             // `try_add_origin` is not applicable:
             // - either current peer is not an origin peer
@@ -571,14 +567,15 @@ impl Consensus {
 
         let wait_timeout_for_consecutive_messages = tick_period / 10;
 
-        // This loop batches incoming messages, so we would need to "apply" them only once.
-        // The "Apply" step is expensive, so it is done for performance reasons.
+        // This loop "batches" incoming messages, so we could "apply" them all at once. The "apply"
+        // step is expensive, so this is done for performance reasons.
+        //
+        // On the other hand, we still want to react to individual messages as fast as possible.
+        //
+        // To fulfill both requirements, we:
+        //   1. Wait for the *first* message for full tick period.
+        //   2. If the message is received, wait for the *next* message for 1/10 of the tick period only.
 
-        // But on the other hand, we still want to react to rare
-        // individual messages as fast as possible.
-        // To fulfill both requirements, we are going the following way:
-        //   1. Wait for the first message for full tick period.
-        //   2. If the message is received, wait for the next message only for 1/10 of the tick period.
         loop {
             // This queue have 2 types of events:
             // - Messages from the leader, like pings, requests to add logs, acks, etc.
@@ -592,8 +589,8 @@ impl Consensus {
             };
 
             // Those messages should not be batched, so we interrupt the loop if we see them.
-            // Motivation is: if we change the peer, it should be done immediately,
-            //  otherwise we loose the update on this new peer
+            // Motivation is: if we change the peer, it should be done immediately, otherwise we
+            // loose the update on this new peer
             let is_conf_change = matches!(
                 message,
                 Message::FromClient(
@@ -610,13 +607,15 @@ impl Consensus {
             }
 
             updates += 1;
-            timeout_at = Instant::now() + wait_timeout_for_consecutive_messages;
 
-            if previous_tick.elapsed() >= tick_period
-                || updates >= RAFT_BATCH_SIZE
-                || is_conf_change
-            {
+            if updates >= RAFT_BATCH_SIZE || is_conf_change {
                 break;
+            }
+
+            let now = Instant::now();
+
+            if now < timeout_at {
+                timeout_at = now + wait_timeout_for_consecutive_messages;
             }
         }
 
@@ -627,8 +626,8 @@ impl Consensus {
         self.runtime.block_on(async {
             tokio::select! {
                 biased;
-                _ = tokio::time::sleep_until(timeout_at.into()) => Err(TryRecvUpdateError::Timeout),
                 message = self.receiver.recv() => message.ok_or(TryRecvUpdateError::Closed),
+                _ = tokio::time::sleep_until(timeout_at.into()) => Err(TryRecvUpdateError::Timeout),
             }
         })
     }
